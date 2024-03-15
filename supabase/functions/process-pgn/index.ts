@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     );
 
     //Fetch the PGNs from Supabase
-    const { data, error } = await supabaseClient("ChessHub_Games").select("pgn").in("id", gameIds);
+    const { data, error } = await supabaseClient("ChessHub_Games").select("id, pgn").in("id", gameIds);
 
     if (error) {
       throw error;
@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     
     console.log("Data from Supabase", data);
     const promises = data?.map(async (game: any) => {
-      return analyzePgn(game.pgn);
+      return analyzePgn(games.id, game.pgn);
     }
 
     await Promise.all(promises);

@@ -1,53 +1,78 @@
 import { Chess } from 'npm:chess.js'
+import { parseGame } from "npm:@mliebelt/pgn-parser";
+import { ProcessPgnRequest } from './types';
 
-export async function analyzePgn(pgn: string): Promise<void> {
+export async function analyzePgn(id: number, pgn: string): Promise<ProcessPgnRequest> {
   const chess = new Chess()
   chess.loadPgn(pgn, { sloppy: true });
   const moveHistory = chess.history({ verbose: true});
 
   console.log("Move History", moveHistory);
 
-  const finalMove = moveHistory[moveHistory.length - 1];
-  const finalPosition = finalMove.after;
+  const endingPhase = getEndingGamePhase(moveHistory[moveHistory.length - 1].after);
+  console.log("Ending Phase", endingPhase);
 
-  //Check to see what phase the game is in
-  return pgn;
+  return {
+    id,
+    pgn, 
+    endingPhase
+  };
 }
 
-function getEndingGamePhase(game: Chess): string {
-  // Middlegame Starts when:
-  // - There are 10 or fewer major or minor pieces (initially 14) OR
-  // - The back rank is sparse
-  //  - Arbitrarily we'll say that of the 8 pieces, 5 have moved from their initial position
+// Middlegame Starts when:
+// - There are 10 or fewer major or minor pieces (initially 14) OR
+// - The back rank is sparse
+//  - Arbitrarily we'll say that of the 8 pieces, 5 have moved from their initial position
+//  - Or maybe that of the 14 initial pieces, 9 have moved
 
-  //Let's start by checking the backrank. This will be tedious since pieces can shuffle around,
-  //so simply checking for being empty is not enough.
-  let backRankPieces = 0;
-  //First advance to the last move of the game
-  //  - If I can't manually advance the moves, then I'll need to load the final FEN
+//Endgame starts when there are 6 or fewer major or minor pieces
+function getEndingGamePhase(fen: string): string {
+  const pieceCount = countBackRankPieces(fen);
 
-  //White's Pieces
-  const a1Square = game.get('a1'); // example return-> { type: 'p', color: 'b' }
-  const b1Square = game.get('b1');
-  const c1Square = game.get('c1');
-  const d1Square = game.get('d1');
-  const e1Square = game.get('e1');
-  const f1Square = game.get('f1');
-  const g1Square = game.get('g1');
-  const h1Square = game.get('h1');
+  if (isInEndgame(pieceCount)) {
+    return 'endgame';
+  }
 
-  //Black's Pieces
-  const a8Square = game.get('a8');
-  const b8Square = game.get('b8');
-  const c8Square = game.get('c8');
-  const d8Square = game.get('d8');
-  const e8Square = game.get('e8');
-  const f8Square = game.get('f8');
-  const g8Square = game.get('g8');
-  const h8Square = game.get('h8');
-  
-  )
+  if (isInMiddlegame(pieceCount)) {
+    return 'middlegame';
+  }
 
-  //Endgame starts when there are 6 or fewer major or minor pieces
+  const chess = new Chess(fen);
+  const whitePieces = ['a1', 'b1', 'c1', 'd1', 'f1', 'g1', 'h1'];
+  const blackPieces = ['a8', 'b8', 'c8', 'd8', 'f8', 'g8', 'h8'];
 
+  const whiteBackRank = getPieceCountFromRank(chess, '1', whitePieces);
+  const blackBackRank = getPieceCountFromRank(chess, '8', blackPieces);
+
+  if (whiteBackRank + blackBackRank > 8) {
+    return 'middlegame';
+  }
+
+  return 'opening';
+}
+
+function countBackRankPieces(fen: string): number {
+  return (fen.match(/r|n|b|q/gi) || []).length;
+}
+
+function isInEndgame(pieceCount: number): boolean {
+  return pieceCount <= 6;
+}
+
+function isInMiddlegame(pieceCount: number): boolean {
+  return pieceCount <= 10 && pieceCount > 6;
+}
+
+function getPieceCountFromRank(chess: any, rank: string, pieces: string[]): number {
+  let count = 0;
+  for (const piece of pieces) {
+    // Not sure if Mr. GPT did this right
+    //  - I'm pretty sure "get" takes the square as an argument and returns { type: 'p', color: 'b' }
+    const square = chess.get(piece + rank);
+    if (square) {
+      count++;
+    }
+  }
+
+  return count;
 }
