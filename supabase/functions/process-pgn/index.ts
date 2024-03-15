@@ -4,10 +4,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../shared/cors.ts";
 
-console.log("Outside Deno.Serve: Hello from Functions!");
-
 Deno.serve(async (req) => {
-  // This is needed to invoke from a browser.
+  // This is needed to invoke from a browser
   const responseHeaders = {
     ...corsHeaders,
     "Content-Type": "application/json",
@@ -18,21 +16,35 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // const supabaseClient = createClient(
-    //   Deno.env.get("SUPABASE_URL") ?? "",
-    //   Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    //   {
-    //     global: {
-    //       headers: { Authorization: req.headers.get("Authorization")! },
-    //     },
-    //   },
-    // );
-
     const { gameIds } = await req.json();
-    const ret = {
-      message: `Game Ids to Analyze ${gameIds}!`,
-    };
 
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: req.headers.get("Authorization")! },
+        },
+      },
+    );
+
+    //Fetch the PGNs from Supabase
+    const { data, error } = await supabaseClient("ChessHub_Games").select("pgn").in("id", gameIds);
+
+    if (error) {
+      throw error;
+    }
+    
+    console.log("Data from Supabase", data);
+    const promises = data?.map(async (game: any) => {
+      return analyzePgn(game.pgn);
+    }
+
+    await Promise.all(promises);
+    
+    const ret = {
+      message: `Finished analyzing: ${gameIds}!`,
+    };
     // const { data } = await supabaseClient.auth.getUser();
     // console.log("User Data from Supabase", data);
 
