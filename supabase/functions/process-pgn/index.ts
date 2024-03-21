@@ -3,6 +3,7 @@
 // This enables autocomplete, go to definition, etc.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../shared/cors.ts";
+import { analyzePgn } from "./analyzePgn.ts";
 
 Deno.serve(async (req) => {
   // This is needed to invoke from a browser
@@ -29,24 +30,36 @@ Deno.serve(async (req) => {
     );
 
     //Fetch the PGNs from Supabase
-    const { data, error } = await supabaseClient("ChessHub_Games").select("id, pgn").in("id", gameIds);
+    const { data, error } = await supabaseClient
+      .from("ChessHub_Games")
+      .select("id, pgn")
+      .in("id", gameIds);
 
     if (error) {
       throw error;
     }
-    
+
     console.log("Data from Supabase", data);
-    const promises = data?.map(async (game: any) => {
-      return analyzePgn(games.id, game.pgn);
+    //Going to do this serially for now, but it's crazy inefficient and I'll have to change it later
+    const promises = data?.map((game: any) => {
+      return analyzePgn(game.id, game.pgn);
+    });
+
+    //await Promise.all(promises);
+    console.log("Game Analysis", promises);
+    for (const promise of promises!) {
+      const { data: insertedData, error: insertedError } = await supabaseClient
+        .from("ChessHub_Games")
+        .update({ metadata: promise })
+        .eq("id", promise.id);
+
+      console.log("Data from Supabase", insertedData);
+      console.log("Error from Supabase", insertedError);
     }
 
-    await Promise.all(promises);
-    
     const ret = {
-      message: `Finished analyzing: ${gameIds}!`,
+      message: `Finished analyzing: ${gameIds}`,
     };
-    // const { data } = await supabaseClient.auth.getUser();
-    // console.log("User Data from Supabase", data);
 
     return new Response(JSON.stringify(ret), {
       headers: responseHeaders,

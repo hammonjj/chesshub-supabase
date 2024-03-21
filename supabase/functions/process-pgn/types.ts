@@ -1,5 +1,5 @@
 export interface ProcessPgnRequest {
   id: number;
-  pgn: string;
+  endingFen: string;
   endingPhase: string;
 }
