@@ -4,6 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../shared/cors.ts";
 import { analyzePgn } from "./analyzePgn.ts";
+import { ProcessPgnResponse } from "./types.ts";
 
 Deno.serve(async (req) => {
   // This is needed to invoke from a browser
@@ -39,19 +40,23 @@ Deno.serve(async (req) => {
       throw error;
     }
 
-    console.log("Data from Supabase", data);
     //Going to do this serially for now, but it's crazy inefficient and I'll have to change it later
-    const promises = data?.map((game: any) => {
+    const analyzedGames = data?.map((game: any) => {
       return analyzePgn(game.id, game.pgn);
     });
 
-    //await Promise.all(promises);
-    console.log("Game Analysis", promises);
-    for (const promise of promises!) {
+    console.log("Game Analysis", analyzedGames);
+    //const success = updateGames(analyzedGames!, supabaseClient);
+    for (const analyzedGame of analyzedGames!) {
       const { data: insertedData, error: insertedError } = await supabaseClient
         .from("ChessHub_Games")
-        .update({ metadata: promise })
-        .eq("id", promise.id);
+        .update({
+          metadata: {
+            endingFen: analyzedGame.analysis.endingFen,
+            endingPhase: analyzedGame.analysis.endingPhase,
+          },
+        })
+        .eq("id", analyzedGame.gameId);
 
       console.log("Data from Supabase", insertedData);
       console.log("Error from Supabase", insertedError);
@@ -73,6 +78,28 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+// async function updateGames(
+//   analyzedGames: ProcessPgnResponse[],
+//   supabaseClient: any,
+// ): boolean {
+//   let transaction = supabaseClient.from("ChessHub_Games").transaction();
+
+//   analyzedGames.forEach((game) => {
+//     transaction = transaction.update({ metadata: game.analysis })
+//       .eq("id", game.gameId);
+//   });
+
+//   const { data, error } = await transaction.commit();
+
+//   if (error) {
+//     console.error("Transaction error:", error);
+//     return false;
+//   }
+
+//   console.log("Transaction success, updated data:", data);
+//   return true;
+// }
 
 /* To invoke locally:
 

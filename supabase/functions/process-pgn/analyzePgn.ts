@@ -1,27 +1,30 @@
 import { Chess } from "npm:chess.js";
 //import { parseGame } from "npm:@mliebelt/pgn-parser";
-import { ProcessPgnRequest } from "./types.ts";
+import { ProcessPgnResponse } from "./types.ts";
 
 export function analyzePgn(
   id: number,
   pgn: string,
-): ProcessPgnRequest {
+): ProcessPgnResponse {
   const chess = new Chess();
   chess.loadPgn(pgn, { sloppy: true });
   const moveHistory = chess.history({ verbose: true });
 
   console.log("Move History", moveHistory);
 
+  const endingFen = moveHistory[moveHistory.length - 1].after;
   const endingPhase = getEndingGamePhase(
-    moveHistory[moveHistory.length - 1].after,
+    endingFen,
   );
 
   console.log("Ending Phase", endingPhase);
 
   return {
-    id,
-    endingPhase,
-    endingFen: moveHistory[moveHistory.length - 1].after,
+    gameId: id,
+    analysis: {
+      endingFen: endingFen,
+      endingPhase,
+    },
   };
 }
 
