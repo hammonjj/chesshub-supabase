@@ -57,9 +57,6 @@ Deno.serve(async (req) => {
           },
         })
         .eq("id", analyzedGame.gameId);
-
-      console.log("Data from Supabase", insertedData);
-      console.log("Error from Supabase", insertedError);
     }
 
     const ret = {
